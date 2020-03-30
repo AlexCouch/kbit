@@ -16,10 +16,12 @@ val engine = setupBytecode{
             this code 0x21
         }
         //Create an expectation for the `input application`
-        expect("test_expect"){
+        expect{
+            this name "test_expect"
+            this describe "This is an example of an enum expectation, where one of many provided opcodes or chunks must be used by the `input app`"
             createOpcode{
                 this name "another_example_opcode"
-                this describe "This is an example of an enum expectation, where one of many provided opcodes or chunks must be used by the `input app`"
+                this describe "This is another example opcode"
                 this code 0x22
             }
             createOpcode{
