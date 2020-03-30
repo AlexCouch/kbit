@@ -1,0 +1,4 @@
+rootProject.name = 'kbit-io'
+
+
+enableFeaturePreview('GRADLE_METADATA')
