@@ -45,6 +45,7 @@ fun main(){
         this.getChunk("another_test"){
             fulfill("test_expect"){
                 getOpcode("OP_TEST")
+                getOpcode("ANOTHER_TEST")
             }
         }
     }
