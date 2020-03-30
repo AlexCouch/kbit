@@ -16,7 +16,7 @@ val engine = setupBytecode{
             this code 0x21
         }
         //Create an expectation for the `input application`
-        expect{
+        expect("test_expect"){
             createOpcode{
                 this name "another_example_opcode"
                 this describe "This is an example of an enum expectation, where one of many provided opcodes or chunks must be used by the `input app`"
@@ -37,7 +37,7 @@ val stream = engine.buildBytePacket{
     getChunk("example_chunk"){
         //If the chunk has an expectation like our example does, it is required that the `input app` 'fulfills' this expectation
         //This function lets you fulfill an expectation
-        fulfill{
+        fulfill("test_expect"){
             //Fulfills the expectation by getting an opcode that the expectation provides
             getOpcode("another_example_opcode")
             //This will throw an exception because the expectation has already been fulfilled by "another_example_opcode"
