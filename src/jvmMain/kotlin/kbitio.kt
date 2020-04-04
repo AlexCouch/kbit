@@ -14,17 +14,12 @@ fun main(){
                 this describe "Another test opcode"
                 this code 0x12
             }
-            /*
-            expect{
-
-            }
-             */
         }
 
         createChunk{
             this name "another_test"
             this describe "A test chunk"
-            expect {
+            expectXOR {
                 this name "test_expect"
                 this describe "A test expectation"
                 createOpcode {
