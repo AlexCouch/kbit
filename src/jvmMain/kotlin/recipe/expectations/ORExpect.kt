@@ -7,10 +7,10 @@ import recipe.ChunkCommandFactory
 
 @ExperimentalStdlibApi
 class ExpectORCommandFactory:
-    BytecodeCommandFactory<BytecodeGeneratorCommand> by ImplBytecodeCommandFactory(),
+    BytecodeCommandFactory<BytecodeGeneratorCommand<*>> by ImplBytecodeCommandFactory(),
     ExpectationFactory by DefaultExpectationFactoryImpl() {
 
-    override fun build(): BytecodeGeneratorCommand =
+    override fun build(): BytecodeGeneratorCommand<*> =
         BytecodeGeneratorCommand.ExpectCommand.ExpectANDCommand(name, description, predicates)
 
 }

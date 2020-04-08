@@ -1,5 +1,7 @@
-import production.BytecodeProductionEngine
+import consumption.BytecodeConsumptionEngine
+import production.*
 import recipe.BytecodeRecipeEngine
+import recipe.BytecodeRecipeProvider
 import results.ErrorResult
 import kotlin.collections.ArrayDeque
 import kotlin.collections.ArrayList
@@ -12,7 +14,7 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
             CreateCommand<Opcode>(name, description) {
             override fun toString(): String {
                 return buildPrettyString {
-                    this.appendWithNewLine("Opcode{")
+                    this.appendWithNewLine("production.Opcode{")
                     this.indent {
                         this.appendWithNewLine("Name: $name")
                         this.appendWithNewLine("Description: $description")
@@ -35,7 +37,7 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
         ) : CreateCommand<Chunk>(name, description) {
             override fun toString(): String {
                 return buildPrettyString {
-                    this.appendWithNewLine("Chunk{")
+                    this.appendWithNewLine("production.Chunk{")
                     this.indent {
                         this.appendWithNewLine("Name: $name")
                         this.appendWithNewLine("Description: $description")
@@ -89,7 +91,13 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
                         }
                     }
                 }
-                return WrappedResult(Chunk(this.name, this.description, ArrayDeque(newcomponents)))
+                return WrappedResult(
+                    Chunk(
+                        this.name,
+                        this.description,
+                        ArrayDeque(newcomponents)
+                    )
+                )
             }
 
         }
@@ -105,7 +113,7 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
         data class ExpectANDCommand(
             override val name: String,
             override val description: String,
-            val choices: HashMap<BytecodeGeneratorCommand<*>, Boolean>
+            val choices: ArrayList<BytecodeGeneratorCommand<*>>
         ): ExpectCommand<Expectation.ANDExpectation>(name, description){
             override fun toComponent(): Result<Expectation.ANDExpectation> {
                 TODO("Not yet implemented")
@@ -117,7 +125,7 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
                     this.appendWithNewLine("Description: $description")
                     this.appendWithNewLine("Choices: [")
                     this.indent {
-                        choices.forEach{(it, fulfilled) ->
+                        choices.forEach{
                             this.appendWithNewLine("$it{")
                             this.appendWithNewLine("Fulfilled: $fulfilled")
                             this.appendWithNewLine("}")
@@ -152,10 +160,10 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
             }
 
             override fun toComponent(): Result<Expectation.XORExpectation>{
-                if(this.fulfilledCommand == null) return ErrorResult("XOR Expectation has not bot been fulfilled: $name")
+                if(this.fulfilledCommand == null) return ErrorResult("XOR production.Expectation has not bot been fulfilled: $name")
                 val comp = when(val result = this.fulfilledCommand?.toComponent()){
                     is WrappedResult -> result.t
-                    is ErrorResult -> return ErrorResult("An error occurred while converting XOR Expectation command to XOR expectation component")
+                    is ErrorResult -> return ErrorResult("An error occurred while converting XOR production.Expectation command to XOR expectation component")
                     else -> return ErrorResult("Unrecognized result: $result")
                 }
                 return WrappedResult(Expectation.XORExpectation(this.name, this.description, comp))
@@ -191,11 +199,11 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
             }
 
             override fun toComponent(): Result<Expectation.NORExpectation> {
-                if(this.fulfilledCommands.isEmpty()) return ErrorResult("NOR Expectation has not bot been fulfilled: $name")
+                if(this.fulfilledCommands.isEmpty()) return ErrorResult("NOR production.Expectation has not bot been fulfilled: $name")
                 val comps = fulfilledCommands.map {
                     when(val result = it.toComponent()){
                         is WrappedResult -> result.t
-                        is ErrorResult -> return ErrorResult("An error occurred while converting NOR Expectation command to NOR expectation component", result)
+                        is ErrorResult -> return ErrorResult("An error occurred while converting NOR production.Expectation command to NOR expectation component", result)
                         else -> return ErrorResult("Unrecognized result: $result")
                     }
                 }
@@ -232,101 +240,112 @@ sealed class BytecodeGeneratorCommand<T>(open val name: String, open val descrip
             }
 
             override fun toComponent(): Result<Expectation.ORExpectation> {
-                if(this.fulfilledCommands.isEmpty()) return ErrorResult("OR Expectation has not bot been fulfilled: $name")
+                if(this.fulfilledCommands.isEmpty()) return ErrorResult("OR production.Expectation has not bot been fulfilled: $name")
                 val comps = fulfilledCommands.map {
                     when(val result = it.toComponent()){
                         is WrappedResult -> result.t
-                        is ErrorResult -> return ErrorResult("An error occurred while converting NOR Expectation command to OR expectation component", result)
+                        is ErrorResult -> return ErrorResult("An error occurred while converting NOR production.Expectation command to OR expectation component", result)
                         else -> return ErrorResult("Unrecognized result: $result")
                     }
                 }
                 return WrappedResult(Expectation.ORExpectation(this.name, this.description, comps))
             }
-            data class ExpectNANDCommand(
-                override val name: String,
-                override val description: String,
-                val cases: ArrayList<BytecodeGeneratorCommand<*>>
-            ): ExpectCommand<Expectation.ORExpectation>(name, description) {
-                internal var fulfilledCommands: List<BytecodeGeneratorCommand<*>> = arrayListOf()
-                override fun toString(): String = buildPrettyString {
-                    this.appendWithNewLine("NANDExpect{")
+        }
+        data class ExpectNANDCommand(
+            override val name: String,
+            override val description: String,
+            val cases: ArrayList<BytecodeGeneratorCommand<*>>
+        ): ExpectCommand<Expectation.ORExpectation>(name, description) {
+            internal var fulfilledCommands: List<BytecodeGeneratorCommand<*>> = arrayListOf()
+            override fun toString(): String = buildPrettyString {
+                this.appendWithNewLine("NANDExpect{")
+                this.indent {
+                    this.appendWithNewLine("Name: $name")
+                    this.appendWithNewLine("Description: $description")
+                    this.appendWithNewLine("Cases: [")
                     this.indent {
-                        this.appendWithNewLine("Name: $name")
-                        this.appendWithNewLine("Description: $description")
-                        this.appendWithNewLine("Cases: [")
-                        this.indent {
-                            cases.forEach {
-                                this.appendWithNewLine(it.toString())
-                            }
+                        cases.forEach {
+                            this.appendWithNewLine(it.toString())
                         }
-                        this.appendWithNewLine("]")
-                        this.appendWithNewLine("Fulfilled{")
-                        this.indent {
-                            fulfilledCommands.forEach {
-                                this.appendWithNewLine(it.toString())
-                            }
-                        }
-                        this.appendWithNewLine("}")
                     }
-                    this.append("}")
+                    this.appendWithNewLine("]")
+                    this.appendWithNewLine("Fulfilled{")
+                    this.indent {
+                        fulfilledCommands.forEach {
+                            this.appendWithNewLine(it.toString())
+                        }
+                    }
+                    this.appendWithNewLine("}")
                 }
+                this.append("}")
+            }
 
-                override fun toComponent(): Result<Expectation.ORExpectation> {
-                    if (this.fulfilledCommands.isEmpty()) return ErrorResult("NAND Expectation has not bot been fulfilled: $name")
-                    val comps = fulfilledCommands.map {
-                        when (val result = it.toComponent()) {
-                            is WrappedResult -> result.t
-                            is ErrorResult -> return ErrorResult(
-                                "An error occurred while converting NAND Expectation command to NAND expectation component",
-                                result
-                            )
-                            else -> return ErrorResult("Unrecognized result: $result")
-                        }
+            override fun toComponent(): Result<Expectation.ORExpectation> {
+                if (this.fulfilledCommands.isEmpty()) return ErrorResult("NAND production.Expectation has not bot been fulfilled: $name")
+                val comps = fulfilledCommands.map {
+                    when (val result = it.toComponent()) {
+                        is WrappedResult -> result.t
+                        is ErrorResult -> return ErrorResult(
+                            "An error occurred while converting NAND production.Expectation command to NAND expectation component",
+                            result
+                        )
+                        else -> return ErrorResult("Unrecognized result: $result")
                     }
-                    return WrappedResult(Expectation.ORExpectation(this.name, this.description, comps))
                 }
+                return WrappedResult(Expectation.ORExpectation(this.name, this.description, comps))
             }
         }
     }
 }
 
+@ExperimentalStdlibApi
 interface BytecodeCommandFactory<T : BytecodeGeneratorCommand<*>>{
     var name: String
     var description: String
 
-    infix fun name(name: String)
-    infix fun describe(description: String)
+    val errorManager: KBitGeneratorErrorManager<out BytecodeCommandFactory<T>>
+
     fun build(): T
 
 }
 
+@ExperimentalStdlibApi
 class ImplBytecodeCommandFactory<T : BytecodeGeneratorCommand<*>>: BytecodeCommandFactory<T>{
     override var name = ""
     override var description = ""
 
-    override infix fun name(name: String){
-        this.name = name
-    }
-
-    override infix fun describe(description: String){
-        this.description = description
-    }
-
     override fun build(): T {
         TODO("Not yet implemented")
     }
+
+    override val errorManager = KBitGeneratorErrorManager(this)
 }
 
 @ExperimentalStdlibApi
-abstract class BytecodeGeneratorEngine<T>{
-    internal open val commands = ArrayDeque<BytecodeGeneratorCommand<*>>()
+interface ProvidesPipeline{
+    fun createProducer(name: String, block: suspend BytecodeProductionEngine.()->Unit)
+    fun createConsumer(name: String, block: suspend BytecodeConsumptionEngine.()->Unit)
+}
+
+@ExperimentalStdlibApi
+abstract class MutableBytecodeGeneratorEngine<T>{
+    internal open val commands = ArrayList<BytecodeGeneratorCommand<*>>()
     abstract val errorManager: KBitGeneratorErrorManager<*>
-    abstract fun build(): T
+    abstract fun finalize(): T
 }
 
 @ExperimentalStdlibApi
-fun setupBytecode(block: BytecodeRecipeEngine.()->Unit): BytecodeProductionEngine {
+abstract class FinalBytecodeGeneratorEngine<T>(internal open val commands: List<BytecodeGeneratorCommand<*>>){
+    abstract val errorManager: KBitGeneratorErrorManager<*>
+    abstract fun finalize(): T
+}
+
+@ExperimentalStdlibApi
+fun setupBytecode(block: BytecodeRecipeEngine.()->Unit): BytecodeRecipeProvider {
     val genEngine = BytecodeRecipeEngine()
     genEngine.block()
-    return genEngine.build()
+    genEngine.commands.forEach {
+        println(it)
+    }
+    return genEngine.finalize()
 }

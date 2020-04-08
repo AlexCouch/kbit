@@ -1,0 +1,4 @@
+package consumption
+
+interface BytecodeConsumptionEngine {
+}

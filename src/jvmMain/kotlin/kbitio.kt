@@ -1,52 +1,57 @@
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+
 @ExperimentalStdlibApi
 fun main(){
     val engine = setupBytecode {
         createChunk{
-            this name "test"
-            this describe "A test chunk"
+            name = "test"
+            description = "A test chunk"
             createOpcode {
-                this name "OP_TEST"
-                this describe "A test opcode"
-                this code 0x11
+                name = "OP_TEST"
+                description = "A test opcode"
+                code = 0x11
             }
             createOpcode {
-                this name "ANOTHER_TEST"
-                this describe "Another test opcode"
-                this code 0x12
+                name = "ANOTHER_TEST"
+                description = "Another test opcode"
+                code = 0x12
             }
         }
 
         createChunk{
-            this name "another_test"
-            this describe "A test chunk"
+            name = "another_test"
+            description = "A test chunk"
             expectXOR {
-                this name "test_expect"
-                this describe "A test expectation"
+                name = "test_expect"
+                description = "A test expectation"
                 createOpcode {
-                    this name "OP_TEST"
-                    this describe "A test opcode"
-                    this code 0x21
+                    name = "OP_TEST"
+                    description = "A test opcode"
+                    code = 0x21
                 }
                 createOpcode {
-                    this name "ANOTHER_TEST"
-                    this describe "Another test opcode"
-                    this code 0x22
+                    name = "ANOTHER_TEST"
+                    description = "Another test opcode"
+                    code = 0x22
                 }
             }
         }
     }
-    val stream = engine.buildBytePacket {
-        this.getChunk("test")
-        this.getChunk("another_test"){
-            fulfill("test_expect"){
-                getOpcode("OP_TEST")
-                getOpcode("ANOTHER_TEST")
+    GlobalScope.launch {
+        val stream = engine.createProducer("") {
+            this.getChunk("test")
+            this.getChunk("another_test"){
+                fulfillXor("test_expect"){
+                    getOpcode("OP_TEST")
+                    getOpcode("ANOTHER_TEST")
+                }
             }
         }
     }
-    while(stream.canRead()){
+    /*while(stream.canRead()){
         print("${stream.readByte()} ")
-    }
+    }*/
     /*
     engine.buildBytecode{
         this.getChunk("

@@ -3,32 +3,28 @@ package recipe
 import BytecodeCommandFactory
 import BytecodeGeneratorCommand
 import ImplBytecodeCommandFactory
+import recipe.expectations.DefaultExpectationFactoryImpl
 import recipe.expectations.ExpectANDCommandFactory
 import recipe.expectations.ExpectXORCommandFactory
 import recipe.expectations.ProvidesExpectation
 
 @ExperimentalStdlibApi
-interface ProvidesChunkCreator: BytecodeCommandFactory<BytecodeGeneratorCommand.CreateCommand.CreateChunkCommand>{
+interface ProvidesChunkCreator{
     fun createChunk(block: ChunkCommandFactory.()->Unit)
 }
 
 @ExperimentalStdlibApi
-interface ProvidesPseudoChunkCreator{
-    fun createChunk(block: ChunkCommandFactory.()->Unit)
-}
-
-@ExperimentalStdlibApi
-interface ChunkCommandFactory: ProvidesOpcodeCreator, ProvidesChunkCreator,
-    ProvidesExpectation
+abstract class ChunkCommandFactory: BytecodeCommandFactory<BytecodeGeneratorCommand.CreateCommand.CreateChunkCommand> by ImplBytecodeCommandFactory(),
+    ProvidesOpcodeCreator, ProvidesChunkCreator,
+    ProvidesExpectation by DefaultExpectationFactoryImpl()
 
 @ExperimentalStdlibApi
 class DefaultChunkCommandFactory:
-    BytecodeCommandFactory<BytecodeGeneratorCommand.CreateCommand.CreateChunkCommand> by ImplBytecodeCommandFactory(),
-    ChunkCommandFactory{
+    ChunkCommandFactory(){
     private val children = ArrayDeque<BytecodeGeneratorCommand<*>>()
 
     override fun createOpcode(block: OpcodeCommandFactory.()->Unit){
-        val factory = OpcodeCommandFactory()
+        val factory = DefaultOpcodeCommandFactory()
         factory.block()
         this.children.add(factory.build())
     }
@@ -39,14 +35,14 @@ class DefaultChunkCommandFactory:
         this.children.add(factory.build())
     }
 
-    override fun expectXOR(block: ExpectANDCommandFactory.()->Unit){
-        val factory = ExpectANDCommandFactory()
+    override fun expectXOR(block: ExpectXORCommandFactory.()->Unit){
+        val factory = ExpectXORCommandFactory()
         factory.block()
         this.children.add(factory.build())
     }
 
-    override fun expectAND(block: ExpectXORCommandFactory.() -> Unit) {
-        val factory = ExpectXORCommandFactory()
+    override fun expectAND(block: ExpectANDCommandFactory.() -> Unit) {
+        val factory = ExpectANDCommandFactory()
         factory.block()
         this.children.add(factory.build())
     }

@@ -1,106 +1,142 @@
 package production
 
-import BytecodeComponent
 import BytecodeGeneratorCommand
-import BytecodeGeneratorEngine
-import Chunk
+import FinalBytecodeGeneratorEngine
 import KBitGeneratorErrorManager
+import kotlinx.io.core.BytePacketBuilder
 import kotlinx.io.core.ByteReadPacket
 import kotlinx.io.core.buildPacket
-import production.fulfillment.ProvidesFulfillment
-import recipe.expectations.*
+import production.fulfillment.*
 import results.ErrorResult
 import results.WrappedResult
 
+interface BytecodeProductionFactory<T: BytecodeComponent, out R: BytecodeGeneratorCommand<T>>{
+    val command: R
+    val bytes: BytePacketBuilder
+    fun build(): T
+}
+
 @ExperimentalStdlibApi
-class BytecodeProductionEngine(override val commands: ArrayDeque<BytecodeGeneratorCommand<*>>):
-    BytecodeGeneratorEngine<ByteReadPacket>(), ProvidesChunkProduction,
+class BytecodeProductionEngine(override val commands: List<BytecodeGeneratorCommand<*>>):
+    FinalBytecodeGeneratorEngine<ByteReadPacket>(commands), ProvidesChunkProduction by DefaultGetChunkFactory(),
     ProvidesFulfillment {
-    override val errorManager: KBitGeneratorErrorManager = KBitGeneratorErrorManager(this)
+    override val errorManager: KBitGeneratorErrorManager<*> = KBitGeneratorErrorManager(this)
     private val bytes = ArrayDeque<BytecodeComponent>()
-    private fun findChunk(name: String): BytecodeGeneratorCommand.CreateCommand.CreateChunkCommand{
-        val found = this.commands.find { it.name == name } ?: throw IllegalArgumentException("Attempted to get chunk with name $name but it doesn't exist")
-        if(found !is BytecodeGeneratorCommand.CreateCommand.CreateChunkCommand) throw IllegalArgumentException("Attempted to get chunk with $name but it is not a chunk but is instead $found")
-        return found
-    }
-    override fun getChunk(name: String){
-        val comp = findChunk(name)
-        val expectations = comp.components.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand<*>>()
-        if(expectations.isNotEmpty()){
-            for(expectation in expectations){
-                if(!expectation.fulfilled){
-                    return ErrorHandler.reportError {
-                        this.appendWithNewLine("Chunk $name has expectations to be fulfilled:")
-                        this.indent {
-                            this.append(expectation.toString())
-                        }
-                    }
-                }
-            }
+
+
+    override suspend fun fulfillXor(name: String, block: suspend XORFulfillmentFactory.() -> Unit) {
+        val expectCommand = commands.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand.ExpectXORCommand>()
+            .find { it.name == name }
+        if(expectCommand == null){
+            errorManager.createError("fulfillXor", "No xor expectation with name $name exists in top level recipe")
+            return
         }
-        val chunk = when(val result = comp.toComponent()){
-            is WrappedResult -> result.t
+        val factory = XORFulfillmentFactory(expectCommand)
+        factory.block()
+        when(val result = factory.build()){
+            is WrappedResult -> bytes.add(result.t)
             is ErrorResult -> {
-                val error = ErrorResult<Chunk>("An error occurred while converting create chunk command to chunk component", result)
-                println(error)
-                throw IllegalStateException(error.toString())
+                errorManager.createError("fulfillXor", "An error occurred while building a component out of an XOR fulfillment: $result")
+                return
             }
             else -> {
-                val error = ErrorResult<Chunk>("Unrecognized result: $result")
-                println(error)
-                throw IllegalStateException(error.toString())
+                errorManager.createError("fulfillXor", "Unrecognized result: $result")
+                return
             }
         }
-        bytes.add(chunk)
     }
 
-    override fun getChunk(name: String, block: GetChunkFactory.()->Unit){
-        val comp = this.findChunk(name)
-        val getChunkFactory = GetChunkFactory(comp)
-        getChunkFactory.block()
-        val chunk = getChunkFactory.build()
-        this.bytes.add(chunk)
+    override suspend fun fulfillAnd(name: String, block: suspend ANDFulfillmentFactory.() -> Unit) {
+        val expectCommand = commands.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand.ExpectANDCommand>()
+            .find { it.name == name }
+        if(expectCommand == null){
+            errorManager.createError("fulfillAnd", "No AND expectation with name $name exists in top level recipe")
+            return
+        }
+        val factory = ANDFulfillmentFactory(expectCommand)
+        factory.block()
+        when(val result = factory.build()){
+            is WrappedResult -> bytes.add(result.t)
+            is ErrorResult -> {
+                errorManager.createError("fulfillAnd", "An error occurred while building a component out of an AND fulfillment: $result")
+                return
+            }
+            else -> {
+                errorManager.createError("fulfillAnd", "Unrecognized result: $result")
+                return
+            }
+        }
     }
 
-    override fun build(): ByteReadPacket =buildPacket {
+    override suspend fun fulfillOr(name: String, block: suspend ORFulfillmentFactory.() -> Unit) {
+        val expectCommand = commands.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand.ExpectORCommand>()
+            .find { it.name == name }
+        if(expectCommand == null){
+            errorManager.createError("fulfillOr", "No OR expectation with name $name exists in top level recipe")
+            return
+        }
+        val factory = ORFulfillmentFactory(expectCommand)
+        factory.block()
+        when(val result = factory.build()){
+            is WrappedResult -> bytes.add(result.t)
+            is ErrorResult -> {
+                errorManager.createError("fulfillOr", "An error occurred while building a component out of an OR fulfillment: $result")
+                return
+            }
+            else -> {
+                errorManager.createError("fulfillOr", "Unrecognized result: $result")
+                return
+            }
+        }
+    }
+
+    override suspend fun fulfillNor(name: String, block: suspend NORFulfillmentFactory.() -> Unit) {
+        val expectCommand = commands.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand.ExpectNORCommand>()
+            .find { it.name == name }
+        if(expectCommand == null){
+            errorManager.createError("fulfillNor", "No NOR expectation with name $name exists in top level recipe")
+            return
+        }
+        val factory = NORFulfillmentFactory(expectCommand)
+        factory.block()
+        when(val result = factory.build()){
+            is WrappedResult -> bytes.add(result.t)
+            is ErrorResult -> {
+                errorManager.createError("fulfillNor", "An error occurred while building a component out of an NOR fulfillment: $result")
+                return
+            }
+            else -> {
+                errorManager.createError("fulfillNor", "Unrecognized result: $result")
+                return
+            }
+        }
+    }
+
+    override suspend fun fulfillNand(name: String, block: suspend NANDFulfillmentFactory.() -> Unit) {
+            val expectCommand = commands.filterIsInstance<BytecodeGeneratorCommand.ExpectCommand.ExpectNANDCommand>()
+            .find { it.name == name }
+        if(expectCommand == null){
+            errorManager.createError("fulfillNand", "No NAND expectation with name $name exists in top level recipe")
+            return
+        }
+        val factory = NANDFulfillmentFactory(expectCommand)
+        factory.block()
+        when(val result = factory.build()){
+            is WrappedResult -> bytes.add(result.t)
+            is ErrorResult -> {
+                errorManager.createError("fulfillNand", "An error occurred while building a component out of an NAND fulfillment: $result")
+                return
+            }
+            else -> {
+                errorManager.createError("fulfillNand", "Unrecognized result: $result")
+                return
+            }
+        }
+    }
+
+    override fun finalize(): ByteReadPacket = buildPacket{
         bytes.forEach {
             this.writePacket(it.toBytePacket())
         }
-    }
-
-    fun buildBytePacket(block: BytecodeProductionEngine.() -> Unit): ByteReadPacket {
-        this.block()
-        return this.build()
-    }
-
-    override suspend fun fulfillXor(name: String, block: ExpectXORCommandFactory.() -> Unit) {
-        val factory = ExpectXORCommandFactory()
-        factory.block()
-        when(val result = factory.build().toComponent()){
-            is WrappedResult -> this.bytes.add(result.t)
-            is ErrorResult -> this.errorManager.createError("fulfillXor", "An error occurred while building a component out of an XOR fulfillment: $result")
-        }
-
-    }
-
-    override suspend fun fulfillAnd(name: String, block: ExpectANDCommandFactory.() -> Unit) {
-        val factory = ExpectANDCommandFactory()
-        factory.block()
-        when(val result = factory.build().toComponent()){
-            is WrappedResult -> this.bytes.add(result.t)
-            is ErrorResult -> this.errorManager.createError("fulfillAnd", "An error occurred while building a component out of an XOR fulfillment: $result")
-        }
-    }
-
-    override suspend fun fulfillOr(name: String, block: ExpectORCommandFactory.() -> Unit) {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun fulfillNor(name: String, block: ExpectNORCommandFactory.() -> Unit) {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun fulfillNand(name: String, block: ExpectNANDCommandFactory.() -> Unit) {
-        TODO("Not yet implemented")
     }
 }

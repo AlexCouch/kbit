@@ -5,8 +5,8 @@ import BytecodeGeneratorCommand
 import ImplBytecodeCommandFactory
 
 @ExperimentalStdlibApi
-class ExpectXORCommandFactory: BytecodeCommandFactory<BytecodeGeneratorCommand<*>> by ImplBytecodeCommandFactory(),
+class ExpectXORCommandFactory:
+    BytecodeCommandFactory<BytecodeGeneratorCommand.ExpectCommand.ExpectXORCommand> by ImplBytecodeCommandFactory(),
     ExpectationFactory by DefaultExpectationFactoryImpl() {
-
-    override fun build(): BytecodeGeneratorCommand<*> = BytecodeGeneratorCommand.ExpectCommand.ExpectXORCommand(this.name, this.description, this.predicates)
+    override fun build()  = BytecodeGeneratorCommand.ExpectCommand.ExpectXORCommand(this.name, this.description, this.predicates)
 }

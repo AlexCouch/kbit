@@ -1,4 +1,5 @@
-import kotlinx.io.core.BytePacketBuilder
+package production
+
 import kotlinx.io.core.ByteReadPacket
 import kotlinx.io.core.buildPacket
 
@@ -12,14 +13,16 @@ interface BytecodeComponent{
     fun toBytePacket(): ByteReadPacket
 }
 
-data class Opcode(override val name: String, override val description: String, val code: Byte): BytecodeComponent {
+data class Opcode(override val name: String, override val description: String, val code: Byte):
+    BytecodeComponent {
     override fun toBytePacket(): ByteReadPacket = buildPacket {
         this.writeByte(code)
     }
 }
 
 @ExperimentalStdlibApi
-data class Chunk(override val name: String, override val description: String, val opcodes: ArrayDeque<BytecodeComponent>): BytecodeComponent {
+data class Chunk(override val name: String, override val description: String, val opcodes: ArrayDeque<BytecodeComponent>):
+    BytecodeComponent {
     override fun toBytePacket(): ByteReadPacket = buildPacket{
         opcodes.forEach {
             this.writePacket(it.toBytePacket())
@@ -27,7 +30,8 @@ data class Chunk(override val name: String, override val description: String, va
     }
 }
 
-sealed class Expectation(override val name: String, override val description: String): BytecodeComponent{
+sealed class Expectation(override val name: String, override val description: String):
+    BytecodeComponent {
     data class XORExpectation(
         override val name: String,
         override val description: String,

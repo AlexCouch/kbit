@@ -1,20 +1,21 @@
 package production.fulfillment
 
-import Expectation
-import recipe.expectations.*
+import production.Expectation
+import production.ProvidesChunkProduction
+import production.ProvidesOpcodeProduction
+import results.*
 
 @ExperimentalStdlibApi
 interface ProvidesFulfillment{
-    suspend fun fulfillXor(name: String, block: XORFulfillmentFactory.()->Unit)
-    suspend fun fulfillAnd(name: String, block: ANDFulfillmentFactory.()->Unit)
-    suspend fun fulfillOr(name: String, block: ORFulfillmentFactory.()->Unit)
-    suspend fun fulfillNor(name: String, block: ExpectNORCommandFactory.()->Unit)
-    suspend fun fulfillNand(name: String, block: ExpectNANDCommandFactory.()->Unit)
+    suspend fun fulfillXor(name: String, block: suspend XORFulfillmentFactory.()->Unit)
+    suspend fun fulfillAnd(name: String, block: suspend ANDFulfillmentFactory.()->Unit)
+    suspend fun fulfillOr(name: String, block: suspend ORFulfillmentFactory.()->Unit)
+    suspend fun fulfillNor(name: String, block: suspend NORFulfillmentFactory.()->Unit)
+    suspend fun fulfillNand(name: String, block: suspend NANDFulfillmentFactory.()->Unit)
 }
 
-interface ExpectationFulfillmentFactory<T: Expectation, R: BytecodeGeneratorCommand.ExpectCommand<*>>{
+@ExperimentalStdlibApi
+interface ExpectationFulfillmentFactory<T: Expectation, R: BytecodeGeneratorCommand.ExpectCommand<*>>: ProvidesChunkProduction, ProvidesOpcodeProduction{
     val expectation: R
-    fun build(): T
+    fun build(): Result<T>
 }
-
-class ExpectationFulfillment: KBitErrorManager

@@ -1,16 +1,17 @@
 package production.fulfillment
 
-import results.ErrorResult
-import results.WrappedResult
+import production.Expectation
+import results.*
 
-class ORFulfillment(override val expectation: BytecodeGeneratorCommand.ExpectCommand.ExpectORCommand): ExpectationFulfillmentFactory<Expectation.ANDExpectation, BytecodeGeneratorCommand.ExpectCommand.ExpectORCommand>{
-    override fun build(): Expectation.ANDExpectation {
-        return Expectation.ANDExpectation(expectation.name, expectation.description, expectation.fulfilledCommands.map {
+class ORFulfillmentFactory(override val expectation: BytecodeGeneratorCommand.ExpectCommand.ExpectORCommand): ExpectationFulfillmentFactory<Expectation.ORExpectation, BytecodeGeneratorCommand.ExpectCommand.ExpectORCommand>{
+    override fun build(): Result<Expectation.ORExpectation> {
+        return WrappedResult(Expectation.ORExpectation(expectation.name, expectation.description, expectation.fulfilledCommands.map {
             when(val result = it.toComponent()){
                 is WrappedResult -> result.t
-                is ErrorResult ->
+                is ErrorResult -> return ErrorResult("An error occurred while converting OR expectation fulfillment command to bytecode component", result)
+                else -> return ErrorResult("Unrecognized result: $result")
             }
-        })
+        }))
     }
 
 }

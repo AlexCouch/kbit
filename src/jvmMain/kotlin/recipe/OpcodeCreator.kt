@@ -10,13 +10,12 @@ interface ProvidesOpcodeCreator{
 }
 
 @ExperimentalStdlibApi
-class OpcodeCommandFactory: BytecodeCommandFactory<BytecodeGeneratorCommand.CreateCommand.CreateOpcodeCommand> by ImplBytecodeCommandFactory() {
-    private var code: Byte = -1
+abstract class OpcodeCommandFactory: BytecodeCommandFactory<BytecodeGeneratorCommand.CreateCommand.CreateOpcodeCommand> by ImplBytecodeCommandFactory(){
+    var code: Byte = -1
+}
 
-    infix fun code(code: Byte){
-        this.code = code
-    }
-
+@ExperimentalStdlibApi
+class DefaultOpcodeCommandFactory: OpcodeCommandFactory() {
     override fun build(): BytecodeGeneratorCommand.CreateCommand.CreateOpcodeCommand =
         BytecodeGeneratorCommand.CreateCommand.CreateOpcodeCommand(
             this.name,
